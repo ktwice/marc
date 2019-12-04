@@ -30,6 +30,13 @@ public class Counter2 {
     public void set(String t, int value) {
         ts.put(t,value);
     }
+    public void clear() {
+        ts.clear();
+    }
+    public void sum(Counter2 c2) {
+        for(Map.Entry<String, Integer> e: c2.ts.entrySet())
+            inc(e.getKey(),e.getValue());
+    }
     public void max(String t, int value) {
         Integer i = ts.get(t);
         if(i==null || i<value) ts.put(t,value);

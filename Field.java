@@ -134,14 +134,14 @@ public class Field {
     private LazyField lazy = null;
     private int lazyIndex;
     private Map<Character,String> subs = null;
+    public static String fsLine(List<String> fs) {
+        return fs.get(0)+": "+String.join("^",fs.subList(1,fs.size()));
+    }
     public static void fssOut(List<List<String>> fss) {
         for(List<String> fs:fss) {
-            System.out.println();
-            for(String f:fs) {
-                System.out.println(f);
-            }
+            System.out.println(fsLine(fs));
         }
-        System.out.println();
+//        System.out.println();
     }
 /**
  * строка без крайних и двойных пробелов 
@@ -1210,6 +1210,21 @@ static private long fno;
             i = i * 10 + (bytes[++index] - '0');
         return i;
     }
+/**
+ * форматирует неотрицательное число в буфер
+ * @param v форматируемое число
+ * @param bytes буфер
+ * @param index смещение позиции
+ * @param len длина позиции
+ */
+    public static void int2bytes(int v, byte[] bytes, int index, int len) throws Exception {
+        int off = index + len;
+        while (off > index) {
+            bytes[--off] = (byte)('0' + (v % 10));
+            v /= 10;
+        }
+        if(v != 0) throw new Exception("int2bytes() out of "+len+" bytes ");
+}
 
     static void SetWords(Words newWords) { words = newWords; }
 

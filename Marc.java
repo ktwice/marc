@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 
 /**
  *
@@ -38,6 +39,8 @@ public class Marc {
     public static void main(String[] args)
             throws FileNotFoundException, IOException, Exception {
 //        testXRF(args[0]);
+    for(String s:System.getProperties().stringPropertyNames())
+        System.out.println("Properties."+s+"="+System.getProperties().getProperty(s));
         try {
         System.out.println("started. "+(new Date()));
         Map<String,String> map = new TreeMap<>();
@@ -218,10 +221,13 @@ System.out.println(">>>"+sr.trim()+"<<<");
                     xrf910(name);
                     break;
                 case "mrc2xml":
-                    mrc2xml(name);
+                    mrc2xml(name,map.get("tag"));
                     break;
                 case "mrc2mrc":
                     mrc2mrc(name,map.get("tag"));
+                    break;
+                case "mrcpiece":
+                    mrcPiece(name,map.get("tag"));
                     break;
                 case "xml2mrc":
                     xml2mrc(name,map.get("tag"));
@@ -638,9 +644,16 @@ System.out.println(v903+"->"+new903);
                + "d="+subs.get('d')+";"
                ;
     }
+/**
+ * Расчет книгообеспеченности ред 2019-12-03
+ * @param name строка года расчета
+ * @param names список баз для поиска литературы через дефис (минус)
+ * @throws IOException 
+ */
     public static void ko(String name, String names) throws IOException {
         Ko2 k2 = new Ko2();
         try(Closeable ca = k2.readKo(Integer.parseInt(name))) {
+            k2.disc_rang3();
             k2.checkBooks(names);
             k2.writeDiscs();
         }
@@ -867,13 +880,13 @@ System.out.println(v903+"->"+new903);
         System.out.println("mrc Records readed = "+mfn);
     }
 
-    public static void mrc2xml(String name)
-            throws FileNotFoundException, IOException {
-        MRC mrc = new MRC();
-        mrc.open(name, "r");
-        MRCRec rec = new MRCRec(null);
+    public static void mrc2xml(String name, String sno)
+            throws FileNotFoundException, IOException, Exception {
+        MrcInputStream mrc = MrcInputStream.build2(name);
+        MrcBuff rec = new MrcBuff();
         XLines x = new XLines();
-        x.open(name,null);
+        int no = (sno==null || sno.isEmpty())?0:Integer.valueOf(sno);
+        x.open(name+((no>0)?"."+no:""),null);
         x.xml1("mrc");
         rec.mrcLeader(x);
         int i=0;
@@ -881,10 +894,47 @@ System.out.println(v903+"->"+new903);
             ++i;
 //            if(i==23630)
 //                System.out.println(""+'\10'+i);
-            rec.xml(x,rec.wrap(mrc.read()));
+            if(no > 0) {
+                if(i < no) continue;
+                if(i > no) break;
+            }
+            rec.xml(x,rec.wrap(mrc.read()),i);
+//            x.fss()
 //            Field.fssOut(rec.fss());
         }
-        System.out.println(""+i+" mrc records");
+        System.out.println(""+i+" mrc records read");
+        x.xml2("mrc");
+        x.close();
+        mrc.close();
+//        System.out.println("mrc Records readed = "+i);
+    }
+
+    public static void mrc2xml_(String name, String sno)
+            throws FileNotFoundException, IOException {
+        MRC mrc = new MRC();
+        mrc.open(name, "r");
+        MRCRec rec = new MRCRec(null);
+        XLines x = new XLines();
+        int no = (sno==null || sno.isEmpty())?0:Integer.parseInt(sno);
+        x.open(name+((no>0)?"."+no:""),null);
+        x.xml1("mrc");
+        rec.mrcLeader(x);
+        int i=0;
+        while(mrc.next() > 0) {
+            ++i;
+//            if(i==23630)
+//                System.out.println(""+'\10'+i);
+            if(no > 0) {
+                if(i > no) break;
+                if(i < no) {
+                    mrc.skip();
+                    continue;
+                }
+            }
+            rec.xml(x,rec.wrap(mrc.read()),i);
+//            Field.fssOut(rec.fss());
+        }
+        System.out.println(""+i+" mrc records read");
         x.xml2("mrc");
         x.close();
         mrc.close();
@@ -910,24 +960,86 @@ System.out.println(v903+"->"+new903);
         mrc.close();
 //        System.out.println("mrc Records readed = "+i);
     }
-    public static void xml2mrc(String xmlname, String charsetName2)
+    public static void mrcPiece(String name, String sno)
+            throws FileNotFoundException, IOException {
+        MRC mrc = new MRC();
+        mrc.open(name, "r");
+        int no = (sno==null || sno.isEmpty())?0:Integer.parseInt(sno);
+        String name2 = name+"."+no;
+        RandomAccessFile raf = new RandomAccessFile(name2,"rw");
+        System.out.println("File "+name2+" created.");
+        int i = 0;
+        while(mrc.next() > 0) {
+            ++i;
+            if(i < no) {
+                mrc.skip();
+                continue;
+            }
+            if(i == no) 
+                raf.write(mrc.read());
+            break;
+//            Field.fssOut(rec.fss());
+        }
+        raf.setLength(raf.getFilePointer());
+        raf.close();
+        mrc.close();
+//        System.out.println("mrc Records readed = "+i);
+    }
+    public static void xml2mrc(String xmlname, String sno)
+            throws FileNotFoundException, IOException, XMLStreamException, Exception {
+        int no = (sno==null || sno.isEmpty())?0:Integer.parseInt(sno);
+        String name2 = xmlname+(no>0?sno:"")+".mrc";
+        Charset charset2 = Charset.forName("utf-8");
+        try (   XML64 x = XML64.open(xmlname); 
+                FileOutputStream fout = new FileOutputStream(name2);
+            ) {
+//            System.out.println("xml element = "+x.getr().getLocalName());
+            System.out.println("File "+name2+" created.");
+            int i = 0;
+            while(x.nextChild("r")) {
+                ++i;
+                if(no>0) {
+                    if(sno.equals(x.getr().getAttributeValue("","r"))) {
+                        continue;
+                    }
+                }
+                String leader = x.getr().getAttributeValue("","l");
+                List<List<String>> fss = x.readfss();
+//                if(i==1)Field.fssOut(fss);
+                for(byte[] bytes:MrcBuff.fssBytes(leader, fss, charset2)){
+                    fout.write(bytes);
+                }
+//                Field.fssOut(rec.fss());
+            }
+            System.out.println("r-elements readed = "+i);
+        }
+    }
+    public static void xml2mrc_(String xmlname, String sno)
             throws FileNotFoundException, IOException, XMLStreamException {
-        String name2 = xmlname+".mrc";
-        Charset charset2 = Charset.forName(charsetName2==null || charsetName2.isEmpty() ? "windows-1251" : charsetName2);
+        int no = (sno==null || sno.isEmpty())?0:Integer.parseInt(sno);
+        String name2 = xmlname+(no>0?sno:"")+".mrc";
+        Charset charset2 = Charset.forName("utf-8");
         try (   XML64 x = XML64.open(xmlname); 
                 RandomAccessFile raf = new RandomAccessFile(name2,"rw");
             ) {
-            int i = 0;
+//            System.out.println("xml element = "+x.getr().getLocalName());
             raf.setLength(0);
             System.out.println("File "+name2+" truncated.");
+            int i = 0;
             while(x.nextChild("r")) {
                 ++i;
+                if(no>0) {
+                    if(sno.equals(x.getr().getAttributeValue("","r"))) {
+                        continue;
+                    }
+                }
                 String leader = x.getr().getAttributeValue("","l");
                 List<List<String>> fss = x.readfss();
                 Field.fssOut(fss);
-                for(byte[] bytes:MRCRec.bss(leader, fss, charset2))
+                for(byte[] bytes:MRCRec.bss(leader, fss, charset2)){
                     raf.write(bytes);
-    //            Field.fssOut(rec.fss());
+                }
+//                Field.fssOut(rec.fss());
             }
             System.out.println("r-elements readed = "+i);
         }
@@ -1396,9 +1508,11 @@ System.out.println(v903+"->"+new903);
                 xml.write();
             }
             xml.close("xrf");
+            System.out.println();
+            System.out.println("" + countReaded + " records.");
+            System.out.println("" + xrf.getMST().getReaded() + " bytes.");
+            System.out.println("That's all.");
         }
-        System.out.println();
-        System.out.println("" + countReaded + " xmled.");
 //        System.out.println("" + bytesReaded + " bytes digged.");
     }
     public static void xrf2t(String name)
@@ -1539,7 +1653,7 @@ System.out.println(v903+"->"+new903);
             throws FileNotFoundException, IOException {
         int n;
         try (Writer wr = new FileWriter(name+".txt")) {
-            wr.write(Field.impHeads());
+//            wr.write(Field.impHeads());
             Melody melody = null;
             Charset charset = null;
             if (charsetName.isEmpty())
@@ -1549,7 +1663,7 @@ System.out.println(v903+"->"+new903);
             MRCRec rec = new MRCRec(charset);
             n = 0;
             mrc.open(name, "r");
-            Progress2 p2 = new Progress2((int)mrc.getRAF().length(), "mrc="+name);
+//            Progress2 p2 = new Progress2((int)mrc.getRAF().length(), "mrc="+name);
             while(mrc.next() > 0) {
                 String smfn = "\n" + ++n + "\t";
                 byte[] bytes = mrc.read();
@@ -1560,7 +1674,8 @@ System.out.println(v903+"->"+new903);
                     if(charset==null && n>10)
                         charset = rec.getCharset();
                 }
-                p2.inc();
+//                p2.inc();
+//rec.fss()
                 for(String s:Field.impFields(MRCRec.sortedFields(rec.getFields()),rec.getMarker()))
                     wr.write(smfn + s);
     //            System.in.read();

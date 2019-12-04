@@ -20,7 +20,9 @@ public class MRC {
     private final int head_size = 5;
     private final byte[] head = new byte[head_size];
     private int len;
+    private long readed;
 
+    public long getReaded() {return readed;}
     public RandomAccessFile getRAF() {return raf;}
 
     public int export(int start, int count) throws FileNotFoundException, IOException {
@@ -53,13 +55,20 @@ public class MRC {
             throws FileNotFoundException, IOException {
         if (name.indexOf('.')<0) name = name.concat(".MRC");
         raf = new RandomAccessFile(name,mode);
+        readed = 0;
     }
     public void close() throws IOException { raf.close(); }
 
     public int next() throws IOException {
         try {
             raf.readFully(head);
-            return (len = Integer.valueOf(new String(head)));
+            String s = new String(head);
+            try { len = Integer.valueOf(s);
+            }catch(Exception e){
+            System.out.println("MRC.next() error "+e.getMessage()+". offset="+raf.getFilePointer()+". len="+s);
+            return -2;
+            }
+            return len;
         }
         catch (EOFException e){
             return -1;
@@ -69,6 +78,7 @@ public class MRC {
     public byte[] read() throws IOException {
         byte[] bytes = Arrays.copyOf(head,len);
         raf.readFully(bytes,head_size,len-head_size);
+        readed += len;
         return bytes;
     }
 

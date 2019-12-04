@@ -18,12 +18,16 @@ public class MST64 extends Rec64 implements Closeable{
 /**
  * буфер для считывания головного участка
  */    
-    private Rec64 rec64head = new Rec64(HEAD_SIZEOF);
-    private RandomAccessFile raf;
+    private final Rec64 rec64head = new Rec64(HEAD_SIZEOF);
+    private final RandomAccessFile raf;
+    private long readed;
     private String fname;
+    
+    public long getReaded() {return readed;}
     private MST64(RandomAccessFile raf) {
         super(Rec64.MST_SIZEOF);
         this.raf = raf;
+        readed = 0;
     }
 /**
  * достает nxtmfn из буфера управляющей записи
@@ -44,6 +48,7 @@ public class MST64 extends Rec64 implements Closeable{
         MST64 mst = new MST64(raf);
         mst.fname = name;
         raf.readFully(mst.bs);
+        mst.readed = mst.bs.length;
         System.out.println(mst.xml());
         return mst;
     }
@@ -113,6 +118,7 @@ public class MST64 extends Rec64 implements Closeable{
         int mfrl = rec64head.ib.get(Rec64.REC64_MFRL);
         byte[] bytes = Arrays.copyOf(rec64head.bs, mfrl);
         raf.readFully(bytes, HEAD_SIZEOF, mfrl - HEAD_SIZEOF);
+        readed += mfrl;
         return bytes;
     }
 /**
@@ -130,6 +136,7 @@ public class MST64 extends Rec64 implements Closeable{
         int mfrl = rec64head.ib.get(Rec64.REC64_MFRL);
         byte[] bytes = Arrays.copyOf(rec64head.bs, mfrl);
         raf.readFully(bytes, HEAD_SIZEOF, mfrl - HEAD_SIZEOF);
+        readed += mfrl;
         return bytes;
     }
 /**

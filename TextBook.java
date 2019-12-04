@@ -44,7 +44,7 @@ public class TextBook {
     /**
      * дата создания записи
      */
-    private String v932;
+    private String v932,v903;
     /**
      * Гриф учебной литературы
      */
@@ -74,6 +74,11 @@ public class TextBook {
     public String getYear() {return year;}
     public String getRecommend() {return recommend;}
     public String getHttp() {return http;}
+/**
+ * конструктор элемента списка литературы для учебника
+ * @param bd БД учебника
+ * @param mfn учебник
+ */
     public TextBook(String bd, int mfn) {
         this.bd=bd;
         this.mfn=mfn;
@@ -109,6 +114,11 @@ public class TextBook {
     public String[] getTexts() {
         return texts;
     }
+/**
+ * заполнение информации по экземплярам из 910го поля ред.2019-12-03
+ * @param list910
+ * @return строка ошибки или null
+ */
     public String read910(List<Field> list910) {
         int n = 0;
         int m = 0;
@@ -156,11 +166,17 @@ public class TextBook {
         texts = Field.tagsTexts(tags);
         return texts;
     }
+/**
+ * чтение учебника
+ * @param tags учебник
+ * @return учебник подходит?
+ */
     public boolean read(Map<Integer,List<Field>> tags){
         readTexts(tags);
         bindex = umli ? ("UMLI".equals(bd) ? 1 : 0) : tagsBindex(tags);
         http = Field.getTagsSub(tags, 951, 'i');
         v932 = Field.getTagsSub(tags, 932, '\0');
+        v903 = Field.getTagsSub(tags, 903, '\0');
         year = Field.getTagsSub(tags, 210, 'd');
         if(year==null)
             year = Field.getTagsSub(tags, 461, 'h');
@@ -208,6 +224,7 @@ recom:  for(Field f:fs) {
         if(v932 != null) attr += XLines.attr("v932", v932);
         attr += XLines.attr("y", year);
         koxml.xml1("b", attr);
+        if(v903 != null) koxml.xml("v903", v903);
         if(bindex == 1) koxml.xml("m");
         koxml.xml("r", recommend);
         koxml.xml("h", http);

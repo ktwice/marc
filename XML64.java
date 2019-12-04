@@ -1,8 +1,8 @@
 package marc;
 
 import java.io.Closeable;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +24,7 @@ XMLStreamReader r;
     static public XML64 open(String name)
             throws XMLStreamException, FileNotFoundException {
         XMLInputFactory f = XMLInputFactory.newInstance();
-        XMLStreamReader r = f.createXMLStreamReader(new FileReader(name));
+        XMLStreamReader r = f.createXMLStreamReader(new FileInputStream(name));
         try {
             XML64 x = new XML64();
             x.r = r;
